@@ -78,9 +78,11 @@ data_split <- data %>%
     Month = factor(Month, mon, ordered = TRUE)
   ) 
 
+data_split
+
 data_split %>%
   filter(
-    Item == '706111',
+    Item == '712112',
     Year == 2018 | Year == 2019 | Year == 2020
   ) %>%
   ggplot(aes(x = Month, y = Price, color = area_name)) +
@@ -88,8 +90,22 @@ data_split %>%
   theme_common() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   facet_grid(~Year) +
-  ggtitle("Price of Chicken by Region")
+  ggtitle("Price of Potatos by Region")
   
+```
+```{r}
+url_state <- 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
+
+filename_nyt <- "./data/us_states.csv"
+
+curl::curl_download(
+        url_state,
+        destfile = filename_nyt
+      )
+
+df_covid <- read_csv(filename_nyt)
+df_covid
+
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
