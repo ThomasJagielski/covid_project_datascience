@@ -7,6 +7,11 @@ This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute
 
 Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
+```{r}
+library(tidyverse)
+```
+
+
 ```{r zdr-theme}
 ## NOTE: No need to edit; feel free to re-use this code!
 theme_common <- function() {
@@ -39,8 +44,6 @@ theme_common <- function() {
 
 
 ```{r}
-
-library(tidyverse)
 mw <- read.csv("data/midwest_bls_cpi.csv", skip = 3, header = TRUE) 
 ne = read.csv("data/northeast_bls_cpi.csv", skip = 3, header = TRUE)
 s = read.csv("data/south_bls_cpi.csv", skip = 3, header = TRUE)
@@ -94,8 +97,11 @@ data_split %>%
   
 ```
 ```{r}
-url_state <- 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
+# Import the list of states with what region they belong to
+states <- read_csv("data/states_with_regions.csv")
 
+# Get the live data from the NYT repo
+url_state <- 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
 filename_nyt <- "./data/us_states.csv"
 
 curl::curl_download(
@@ -104,8 +110,20 @@ curl::curl_download(
       )
 
 df_covid <- read_csv(filename_nyt)
-df_covid
 
+# Add the region 
+df_covid <- left_join(df_covid, states, by = "state")
+```
+```{r}
+# Read the population data
+filename_population <- "./data/ACSDT5Y2018.B01003_data_with_overlays_2020-10-22T174815.csv"
+
+df_pop <- read_csv(filename_population, skip = 1)
+
+# Add the population data to the COVID dataframe
+df_covid_total <- 
+  left_join(df_covid, df_pop, by = "state") 
+df_covid_total 
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
