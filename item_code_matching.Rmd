@@ -11,23 +11,34 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 library(tidyverse)
 
 mw <- read.csv("data/midwest_bls_cpi.csv", skip = 3, header = TRUE) 
+ne = read.csv("data/northeast_bls_cpi.csv", skip = 3, header = TRUE)
+s = read.csv("data/south_bls_cpi.csv", skip = 3, header = TRUE)
+w = read.csv("data/west_bls_cpi.csv", skip = 3, header = TRUE)
+data = rbind(mw, ne, s, w)
 area_codes = read.csv("data/area_codes.csv")
 item_codes = read.csv("data/item_codes.csv", sep ="\t")
 
-mw_item_codes <- mw %>% 
+data_split <- data %>% 
   separate(
     col = 1,
     into = c("AP", "Seasonal Adjust", "Area", "Item"), 
     sep = c(2, 3, 7)
   ) %>% 
+  merge(
+    item_codes, by.x = "Item", by.y = "item_code"
+  ) %>%
+  merge(
+    area_codes %>% select(-X), by.x = "Area", by.y = "area_code"
+  )
+data_item_codes <- data_split %>% 
   select("Item")
 
 item_only <-  
   item_codes %>% 
   select(item_code)
 
-intersection = unlist(item_only) %in% unlist(mw_item_codes)
-as.vector(unlist(mw_item_codes)[intersection])
+intersection = unlist(item_only) %in% unlist(data_item_codes)
+as.vector(unlist(data_item_codes)[intersection])
 
 ```
 
