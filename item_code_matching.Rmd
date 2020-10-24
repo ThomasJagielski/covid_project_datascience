@@ -143,13 +143,14 @@ df_pop <- read_csv(filename_population, skip = 1) %>%
   left_join(states, by = "state") %>% #get region
   select( #rename population and get rid of unnecessary ubfi
     state,
-    population = `Estimate!!Total`,
+    population_2020 = `Estimate!!Total`,
     region = region
   ) %>%
   group_by(region) %>%
   summarize( #get the population for each region
-    population = sum(population, na.rm = TRUE)
-  )
+    population = sum(population_2020, na.rm = TRUE)
+  ) %>%
+  filter(is.na(region) == FALSE) #get rid of the NA region that was from the row of state = United States
 
 # Add the population data to the COVID dataframe
 df_covid_total <- df_covid %>%
@@ -161,9 +162,9 @@ df_covid_total <- df_covid %>%
   summarize(
     cases = sum(cases, na.rm = TRUE),
     deaths = sum(deaths, na.rm = TRUE)
-  ) %>%
-  left_join(df_pop, by = "region") %>% #Add the population for each region
-  filter(is.na(region) == FALSE) #get rid of the NA region that exists for some reason
+  ) 
+#%>%
+  #left_join(df_pop, by = "region") #Add the population for each region
 
 df_covid_total
 ```
@@ -176,7 +177,10 @@ df_covid_total %>% #plot the covid data just to take a quick look and make sure 
 
 
 ```{r}
-full_dataset <- data_split %>% left_join(df_covid_total, by = c("area_name" = "region", "month", "year")) #merge the covid dataset into the price dataset
+full_dataset <- data_split %>% 
+  left_join(df_covid_total, by = c("area_name" = "region", "month", "year")) %>% #merge the covid dataset into the price dataset
+  left_join(df_pop, by = c("area_name" = "region"))
+full_dataset
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
