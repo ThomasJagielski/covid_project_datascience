@@ -143,12 +143,12 @@ df_pop <- read_csv(filename_population, skip = 1) %>%
   left_join(states, by = "state") %>% #get region
   select( #rename population and get rid of unnecessary ubfi
     state,
-    population_2020 = `Estimate!!Total`,
+    population_2018 = `Estimate!!Total`,
     region = region
   ) %>%
   group_by(region) %>%
   summarize( #get the population for each region
-    population = sum(population_2020, na.rm = TRUE)
+    population = sum(population_2018, na.rm = TRUE)
   ) %>%
   filter(is.na(region) == FALSE) #get rid of the NA region that was from the row of state = United States
 
