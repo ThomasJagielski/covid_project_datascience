@@ -7,6 +7,26 @@ This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute
 
 Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
 
+## Report
+
+<!-- ------------------------- -->
+
+The report is the knitted version of the **current document** (this Rmd).
+
++-------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------+
+| Category    | Unsatisfactory                                                                                                   | Satisfactory                                                                                                              |
++=============+==================================================================================================================+===========================================================================================================================+
+| Effort      | Some task **q**'s left unattempted                                                                               | All task **q**'s attempted                                                                                                |
++-------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------+
+| Observed    | Did not document observations, or observations incorrect                                                         | Documented correct observations based on analysis                                                                         |
++-------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------+
+| Supported   | Some observations not supported by analysis, or errors in analysis                                               | All observations clearly and correctly supported by analysis (table, graph, etc.)                                         |
++-------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------+
+| Assessed    | Observations include claims not supported by the data, or reflect a level of certainty not warranted by the data | Observations are appropriately qualified by the quality & relevance of the data and the (in)conclusiveness of the Support |
++-------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------+
+| Code Styled | Violations of the [style guide](https://style.tidyverse.org/) hinder readability                                 | Code sufficiently close to the [style guide](https://style.tidyverse.org/)                                                |
++-------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------+
+
 ```{r}
 library(tidyverse)
 ```
@@ -59,6 +79,9 @@ data_split <- data %>%
     into = c("AP", "Seasonal Adjust", "area", "item"), 
     sep = c(2, 3, 7)
   ) %>% 
+  mutate(
+    item = replace(item, item == "712111", "712112")
+  ) %>%
   merge(
     item_codes, by.x = "item", by.y = "item_code"
   ) %>%
@@ -162,7 +185,8 @@ df_covid_total <- df_covid %>%
   summarize(
     cases = sum(cases, na.rm = TRUE),
     deaths = sum(deaths, na.rm = TRUE)
-  ) 
+  ) %>%
+  filter(is.na(region) == FALSE)
 #%>%
   #left_join(df_pop, by = "region") #Add the population for each region
 
@@ -175,13 +199,65 @@ df_covid_total %>% #plot the covid data just to take a quick look and make sure 
   geom_line(aes(x = month, y = cases, color = region, group = region))
 ```
 
-
 ```{r}
 full_dataset <- data_split %>% 
   left_join(df_covid_total, by = c("area_name" = "region", "month", "year")) %>% #merge the covid dataset into the price dataset
-  left_join(df_pop, by = c("area_name" = "region"))
+  left_join(df_pop, by = c("area_name" = "region")) %>%
+  mutate(
+    cases = cases - lag(cases),
+    deaths = deaths - lag(deaths)
+  ) %>%
+  mutate(
+    cases_per100k = (cases/population) * 100000,
+    deaths_per100k = (deaths/population) * 100000
+  )
 full_dataset
 ```
+```{r}
+coeff <- 0.001
+
+full_dataset %>%
+  filter(
+    item == 'FD3101',
+    year == 2020
+  ) %>%
+  ggplot() +
+  geom_point(aes(x = month, y = cases_per100k, color = area_name)) +
+  geom_line(aes(x = month, y = cases_per100k, color = area_name, group = area_name)) +
+  geom_point(aes(x = month, y = price / coeff, color = area_name), shape  = 2) +
+  geom_line(aes(x = month, y = price / coeff, color = area_name, group = area_name)) +
+  scale_y_continuous(
+    name = "cases",
+    sec.axis = sec_axis(~.*coeff, name="price")
+  ) + 
+  theme_common() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  facet_grid(~year) +
+  ggtitle("Price of Potatos by Region")
+```
+
+```{r}
+coeff <- 0.000002
+
+full_dataset %>%
+  filter(
+    item == 'FD3101',
+    area_name == 'Midwest',
+    year == 2020
+  ) %>%
+  ggplot() +
+  geom_point(aes(x = month, y = cases,), shape = 1) +
+  geom_point(aes(x = month, y = price/coeff)) +
+  scale_y_continuous(
+    name = "Number of Cases",
+    sec.axis = sec_axis(~.*coeff, name="Price per Pound ($)")
+  ) +
+  theme_common() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  facet_grid(~ year) +
+  ggtitle("Price of All Pork Chop vs Number of Coronavirus Cases in the Midwest")
+```
+
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
