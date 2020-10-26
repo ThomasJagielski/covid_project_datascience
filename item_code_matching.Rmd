@@ -270,31 +270,39 @@ full_dataset %>%
     #values_to = "value"
   #) %>%
   filter(
-    item == 'FD2101',
+    item == 'FD3101',
     # area_name == 'Midwest',
     year >= 2017,
     #variable == "cases_per100k" | variable == "price"
   ) %>%
   mutate(
-    year = as.character(year)
+    year_code = ifelse(year < 2020, "Previous Year Prices", "Price 2020")
+    # year = as.character(year)
   ) %>%
   ggplot(aes(x = month)) +
-  geom_point(aes(y = price, color = paste(year, " Price"))) +
-  geom_line(aes(y = price, color = paste(year, " Price"), group = year)) +
-  scale_color_manual(values = c("grey", "grey", "grey", "blue", "black")) +
+  # geom_point(aes(y = price, color = paste(year, " Price"))) +
+  # geom_line(aes(y = price, color = paste(year, " Price"), group = year)) +
+  geom_point(aes(y = price, color = year_code)) +
+  geom_line(aes(y = price, color = year_code, group = year)) +
+  scale_color_manual(
+    values = c("Previous Year Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
+    name = "idk a good name",
+    breaks = c("Previous Year Prices", "Price 2020", "COVID Cases Per 100k")) +
   geom_point(aes(y = cases_per100k)) + 
   geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
   scale_y_continuous(
-    name = "cases per 100k",
-    sec.axis = sec_axis(~.*coeff + 2, name="price")
+    name = "Cases Per 100k",
+    sec.axis = sec_axis(~.*coeff + 2, name="Price ($USD)")
   ) +
   theme_common() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
         strip.text.y = element_text(size = 10, angle = 270),
         aspect.ratio = 0.5,
-        legend.title=element_blank()) +
+        # legend.title=element_blank()
+        ) +
   facet_wrap(~ area_name) +
-  ggtitle("Ham Price and COVID Cases by Region")
+  xlab("Month") +
+  ggtitle("Pork Price (per lb) and COVID Cases by Region")
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
