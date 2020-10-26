@@ -258,6 +258,44 @@ full_dataset %>%
   ggtitle("Price of All Pork Chop vs Number of Coronavirus Cases in the Midwest")
 ```
 
+```{r}
+coeff <- 0.003
+full_dataset %>%
+  mutate(
+    price = (price - 2) / coeff
+  ) %>%
+ # pivot_longer(
+    #cols = c(cases, price, cases_per100k),
+    #names_to = "variable",
+    #values_to = "value"
+  #) %>%
+  filter(
+    item == 'FD2101',
+    # area_name == 'Midwest',
+    year >= 2017,
+    #variable == "cases_per100k" | variable == "price"
+  ) %>%
+  mutate(
+    year = as.character(year)
+  ) %>%
+  ggplot(aes(x = month)) +
+  geom_point(aes(y = price, color = paste(year, " Price"))) +
+  geom_line(aes(y = price, color = paste(year, " Price"), group = year)) +
+  scale_color_manual(values = c("grey", "grey", "grey", "blue", "black")) +
+  geom_point(aes(y = cases_per100k)) + 
+  geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
+  scale_y_continuous(
+    name = "cases per 100k",
+    sec.axis = sec_axis(~.*coeff + 2, name="price")
+  ) +
+  theme_common() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        strip.text.y = element_text(size = 10, angle = 270),
+        aspect.ratio = 0.5,
+        legend.title=element_blank()) +
+  facet_wrap(~ area_name) +
+  ggtitle("Ham Price and COVID Cases by Region")
+```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
