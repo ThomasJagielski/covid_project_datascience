@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
@@ -26,6 +28,8 @@ The report is the knitted version of the **current document** (this Rmd).
 +-------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------+
 | Code Styled | Violations of the [style guide](https://style.tidyverse.org/) hinder readability                                 | Code sufficiently close to the [style guide](https://style.tidyverse.org/)                                                |
 +-------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------+
+
+## Setup
 
 ```{r}
 library(tidyverse)
@@ -60,6 +64,30 @@ theme_common <- function() {
   )
 }
 ```
+
+## What question did you set out to answer?:
+
+Is there a correlation between coronavirus cases and the food prices within the United States?
+
+
+## What data did you find to help answer that question?
+
+- We used the New York Times coronavirus cases count for each state (https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv)
+
+- We used price data from the Bureau of Labor Statistics’s Consumer Price Index to determine the price of each item over time (https://www.bls.gov/cpi/data.html)
+
+- We used population data from the census to obtain the population for each state.
+
+
+## What is the relevant background on your question?
+
+- https://www.bls.gov/opub/mlr/2020/article/the-impact-of-the-covid-19-pandemic-on-food-price-indexes-and-data-collection.htm
+
+- During the first few months of the pandemic, as everywhere locked down, we started to see news reports about food prices going nuts. We saw ourselves at the grocery store that some item prices were lower than ever, while some were through the roof. We wanted to see if this anecdotal evidence was supported by the data. 
+
+- During the first few months of the pandemic, many businesses and facilities had to be shut down as they could not be determined to be safe to work in or have the proper equipment to ensure the safety of their workers. Because of this shutdown, many sources of food, especially meat, dairy, and eggs; did not have people to process these often quick to perish food items. Many animals had to be culled as there would be a surplus for processing and upkeep of such animals would cost too much. However meatpacking plants and other food facilities were soon deemed a necessity and their workers essential. This caused a shortage in animal products in the following months that could be observed by many consumers through drastically increased product prices. We wanted to investigate our own observations in price changes of animal products over the past few months in this project. 
+
+
 
 ```{r}
 mw <- read.csv("data/midwest_bls_cpi.csv", skip = 3, header = TRUE) 
@@ -258,6 +286,8 @@ full_dataset %>%
   ggtitle("Price of All Pork Chop vs Number of Coronavirus Cases in the Midwest")
 ```
 
+# Presentation Plots:
+
 ```{r}
 coeff <- 0.003
 full_dataset %>%
@@ -286,7 +316,7 @@ full_dataset %>%
   geom_line(aes(y = price, color = year_code, group = year)) +
   scale_color_manual(
     values = c("Previous Year Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
-    name = "idk a good name",
+    name = "Legend",
     breaks = c("Previous Year Prices", "Price 2020", "COVID Cases Per 100k")) +
   geom_point(aes(y = cases_per100k)) + 
   geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
@@ -305,8 +335,120 @@ full_dataset %>%
   ggtitle("Pork Price (per lb) and COVID Cases by Region")
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+**Notes**:
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+The purpose of this graph was to illustrate the general trends of Pork Chop prices by pound in the four US regions over time.  It should be noted that there are gaps in the Northeast Porkchop prices in April. Generally the prices of pork chops are elevated in all regions from where they initially quite close together in January. Data from 2019 pork prices were included to show typical monthly variance in price by region. 
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+coeff <- 0.003
+full_dataset %>%
+  mutate(
+    price = (price - 2) / coeff
+  ) %>%
+ # pivot_longer(
+    #cols = c(cases, price, cases_per100k),
+    #names_to = "variable",
+    #values_to = "value"
+  #) %>%
+  filter(
+    item == 'FC1101',
+    # area_name == 'Midwest',
+    year >= 2017,
+    #variable == "cases_per100k" | variable == "price"
+  ) %>%
+  mutate(
+    year_code = ifelse(year < 2020, "Previous Year Prices", "Price 2020")
+    # year = as.character(year)
+  ) %>%
+  ggplot(aes(x = month)) +
+  # geom_point(aes(y = price, color = paste(year, " Price"))) +
+  # geom_line(aes(y = price, color = paste(year, " Price"), group = year)) +
+  geom_point(aes(y = price, color = year_code)) +
+  geom_line(aes(y = price, color = year_code, group = year)) +
+  scale_color_manual(
+    values = c("Previous Year Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
+    name = "Legend",
+    breaks = c("Previous Year Prices", "Price 2020", "COVID Cases Per 100k")) +
+  geom_point(aes(y = cases_per100k)) + 
+  geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
+  scale_y_continuous(
+    name = "Cases Per 100k",
+    sec.axis = sec_axis(~.*coeff + 2, name="Price ($USD)")
+  ) +
+  theme_common() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        strip.text.y = element_text(size = 10, angle = 270),
+        aspect.ratio = 0.5,
+        # legend.title=element_blank()
+        ) +
+  facet_wrap(~ area_name) +
+  xlab("Month") +
+  ggtitle("Ground Beef Price (per lb) and COVID Cases by Region")
+```
+
+**Notes**:
+
+Within this figure, we can see increases in price for beef in all regions around June.  This also appears to loosely correspond to when coronavirus cases began to increase mostly in the Northeast and South.  The time of the spike in the Northeast appears to roughly equate to the time in which the price of ground beef increased in price throughout all regions within the United States.  Interestingly it appears that the price of beef in the midwest was highest when coronavirus cases spiked downward for one month.
+
+
+
+```{r}
+coeff <- 0.003
+full_dataset %>%
+  mutate(
+    price = (price - 2) / coeff
+  ) %>%
+ # pivot_longer(
+    #cols = c(cases, price, cases_per100k),
+    #names_to = "variable",
+    #values_to = "value"
+  #) %>%
+  filter(
+    item == 'FF1101',
+    # area_name == 'Midwest',
+    year >= 2017,
+    #variable == "cases_per100k" | variable == "price"
+  ) %>%
+  mutate(
+    year_code = ifelse(year < 2020, "Previous Year Prices", "Price 2020")
+    # year = as.character(year)
+  ) %>%
+  ggplot(aes(x = month)) +
+  # geom_point(aes(y = price, color = paste(year, " Price"))) +
+  # geom_line(aes(y = price, color = paste(year, " Price"), group = year)) +
+  geom_point(aes(y = price, color = year_code)) +
+  geom_line(aes(y = price, color = year_code, group = year)) +
+  scale_color_manual(
+    values = c("Previous Year Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
+    name = "Legend",
+    breaks = c("Previous Year Prices", "Price 2020", "COVID Cases Per 100k")) +
+  geom_point(aes(y = cases_per100k)) + 
+  geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
+  scale_y_continuous(
+    name = "Cases Per 100k",
+    sec.axis = sec_axis(~.*coeff + 2, name="Price ($USD)")
+  ) +
+  theme_common() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        strip.text.y = element_text(size = 10, angle = 270),
+        aspect.ratio = 0.5,
+        # legend.title=element_blank()
+        ) +
+  facet_wrap(~ area_name) +
+  xlab("Month") +
+  ggtitle("Chicken Breast Price (per lb) and COVID Cases by Region")
+```
+
+**Notes**:
+
+Within this figure, we can see that the price of chicken breast remained much more steady than prices of other items we previously looked at.  There appears to be a slight increase in price, which is most noticeable in the Midwest and the Northeast, but for the most part it remained steady.  Increasingly there appears to be missing data during April and May for the West and just in May for the Northeast.  However, the surrounding months do not appear to fluctuate like they had for other types of meats.
+
+## Dataset Commentary:
+
+
+# Conclusions:
+
+
+## Further Questions:
+
+- What happened to the missing data? It’s unlikely the northeast just stopped consuming chicken, so why is there no data on it since last October? Other items also have similar gaps.  
