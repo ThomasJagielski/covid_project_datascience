@@ -1,13 +1,7 @@
 ---
 title: "R Notebook"
-output:
-  html_document:
-    df_print: paged
+output: github-document
 ---
-
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
 
 ## Report
 
@@ -31,7 +25,7 @@ The report is the knitted version of the **current document** (this Rmd).
 
 ## Setup
 
-```{r}
+```{r tidyverse}
 library(tidyverse)
 ```
 
@@ -67,8 +61,7 @@ theme_common <- function() {
 
 ## What question did you set out to answer?:
 
-Is there a correlation between coronavirus cases and the food prices within the United States?
-
+How did the pandemic affect food prices within the United States?
 
 ## What data did you find to help answer that question?
 
@@ -81,26 +74,28 @@ Is there a correlation between coronavirus cases and the food prices within the 
 
 ## What is the relevant background on your question?
 
-- https://www.bls.gov/opub/mlr/2020/article/the-impact-of-the-covid-19-pandemic-on-food-price-indexes-and-data-collection.htm
-
 - During the first few months of the pandemic, as everywhere locked down, we started to see news reports about food prices going nuts. We saw ourselves at the grocery store that some item prices were lower than ever, while some were through the roof. We wanted to see if this anecdotal evidence was supported by the data. 
 
 - During the first few months of the pandemic, many businesses and facilities had to be shut down as they could not be determined to be safe to work in or have the proper equipment to ensure the safety of their workers. Because of this shutdown, many sources of food, especially meat, dairy, and eggs; did not have people to process these often quick to perish food items. Many animals had to be culled as there would be a surplus for processing and upkeep of such animals would cost too much. However meatpacking plants and other food facilities were soon deemed a necessity and their workers essential. This caused a shortage in animal products in the following months that could be observed by many consumers through drastically increased product prices. We wanted to investigate our own observations in price changes of animal products over the past few months in this project. 
 
+- Part of the rise of prices for some food items could also be due to increased demand, as people stocked up on food to limit their trips to the store and shifted to eating at home rather than eating at restaurants.
+
+- Another bit of relevant context to keep in mind is that prices change on a different time scale than COVID cases (and both are reported on a different time scale). There is at least a two-week delay in terms of getting accurate data on COVID cases, and this is of course, dependent on an individual county or state’s testing procedures. There may be a similar lag for prices as individual distributors and vendors react to the changing demand.
 
 
-```{r}
+```{r bls-processing}
+# Load and combine region data
 mw <- read.csv("data/midwest_bls_cpi.csv", skip = 3, header = TRUE) 
 ne = read.csv("data/northeast_bls_cpi.csv", skip = 3, header = TRUE)
 s = read.csv("data/south_bls_cpi.csv", skip = 3, header = TRUE)
 w = read.csv("data/west_bls_cpi.csv", skip = 3, header = TRUE)
 data = rbind(mw, ne, s, w)
+# Load area & item codes
 area_codes = read.csv("data/area_codes.csv")
 item_codes = read.csv("data/item_codes.csv", sep ="\t")
 
-months = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+# Map area & item data
 mon = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-# mon_factor = factor(mon, mon, ordered = TRUE)
 data_split <- data %>% 
   separate(
     col = 1,
@@ -130,30 +125,10 @@ data_split <- data %>%
     year = as.integer(year),
     month = factor(month, mon, ordered = TRUE)
   ) 
-
-data_split
-
-
-  
 ```
 
-```{r}
 
-data_split %>%
-  filter(
-    item == '712112',
-    year == 2018 | year == 2019 | year == 2020
-  ) %>%
-  ggplot(aes(x = month, y = price, color = area_name)) +
-  geom_point() +
-  theme_common() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  facet_grid(~year) +
-  ggtitle("Price of Potatos by Region")
-
-```
-
-```{r}
+```{r get-covid}
 # Import the list of states with what region they belong to
 states <- read_csv("data/states_with_regions.csv")
 
@@ -167,45 +142,56 @@ curl::curl_download(
       )
 
 df_covid <- read_csv(filename_nyt) %>%
-  separate( #Separate YYYY-MM-DD into 3 columns
+  # Separate YYYY-MM-DD into 3 columns
+  separate( 
     col = date,
     sep = '-',
     into = c("year", "month", "day")
   ) %>% 
-  mutate( #Make year month day into integers
+  # Make year month day into integers
+  mutate( 
     year = as.integer(year),
     month = as.integer(month),
     day = as.integer(day)
   ) %>%
-  group_by(state, year, month, fips) %>% #Group by these values to keep them
-  summarize( #Summarize to get total cases over each month in each state
+  # Group by these values to keep them
+  group_by(state, year, month, fips) %>% 
+  # Summarize to get total cases over each month in each state
+  summarize( 
     cases = max(cases, na.rm = TRUE),
     deaths = max(deaths, na.rm = TRUE)
   ) %>%
-  left_join(states, by = "state") #Add in the region for this state
+  # Add in the region for this state
+  left_join(states, by = "state") 
+
 df_covid
 ```
 
-```{r}
+```{r pop-data}
 # Read the population data
 filename_population <- "./data/ACSDT5Y2018.B01003_data_with_overlays_2020-10-22T174815.csv"
 
 df_pop <- read_csv(filename_population, skip = 1) %>%
-  left_join(states, by = "state") %>% #get region
-  select( #rename population and get rid of unnecessary ubfi
+  # Assign each state a region
+  left_join(states, by = "state") %>% 
+  # Rename population
+  select( 
     state,
     population_2018 = `Estimate!!Total`,
     region = region
   ) %>%
   group_by(region) %>%
-  summarize( #get the population for each region
+  # Get the population for each region
+  summarize( 
     population = sum(population_2018, na.rm = TRUE)
   ) %>%
-  filter(is.na(region) == FALSE) #get rid of the NA region that was from the row of state = United States
+  # Get rid of the NA region that was from the row of state = United States
+  filter(is.na(region) == FALSE) 
 
 # Add the population data to the COVID dataframe
 df_covid_total <- df_covid %>%
-  mutate( #Change numeric month into mon, the same format as the price data
+  # Change numeric month into mon, the same format as the price data
+  mutate( 
     month = factor(month, levels = c(1,2,3,4,5,6,7,8,9,10,11,12), labels = mon, ordered = TRUE),
     .keep = "unused"
   ) %>%
@@ -215,109 +201,55 @@ df_covid_total <- df_covid %>%
     deaths = sum(deaths, na.rm = TRUE)
   ) %>%
   filter(is.na(region) == FALSE)
-#%>%
-  #left_join(df_pop, by = "region") #Add the population for each region
 
 df_covid_total
 ```
 
-```{r}
-df_covid_total %>% #plot the covid data just to take a quick look and make sure it doesn't look totally off
-  ggplot() +
-  geom_line(aes(x = month, y = cases, color = region, group = region))
-```
 
-```{r}
+```{r combine-bls-pop-covid}
+# Merge the covid dataframe into the price dataframe
 full_dataset <- data_split %>% 
-  left_join(df_covid_total, by = c("area_name" = "region", "month", "year")) %>% #merge the covid dataset into the price dataset
+  left_join(df_covid_total, by = c("area_name" = "region", "month", "year")) %>%
   left_join(df_pop, by = c("area_name" = "region")) %>%
   mutate(
     cases = cases - lag(cases),
     deaths = deaths - lag(deaths)
   ) %>%
+  # Calculate cases per 100k
   mutate(
     cases_per100k = (cases/population) * 100000,
     deaths_per100k = (deaths/population) * 100000
   )
 full_dataset
 ```
-```{r}
-coeff <- 0.001
 
-full_dataset %>%
-  filter(
-    item == 'FD3101',
-    year == 2020
-  ) %>%
-  ggplot() +
-  geom_point(aes(x = month, y = cases_per100k, color = area_name)) +
-  geom_line(aes(x = month, y = cases_per100k, color = area_name, group = area_name)) +
-  geom_point(aes(x = month, y = price / coeff, color = area_name), shape  = 2) +
-  geom_line(aes(x = month, y = price / coeff, color = area_name, group = area_name)) +
-  scale_y_continuous(
-    name = "cases",
-    sec.axis = sec_axis(~.*coeff, name="price")
-  ) + 
-  theme_common() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  facet_grid(~year) +
-  ggtitle("Price of Potatos by Region")
-```
+# Analysis
 
-```{r}
-coeff <- 0.000002
+We investigated three meat products (pork chops, ground beef, and chicken breasts) as they were the three products with sufficient data and encompassed a number of more specific animal products. (For example, there are several different kinds of ground beef products, which are all encapsulated in the ground beef category).
 
-full_dataset %>%
-  filter(
-    item == 'FD3101',
-    area_name == 'Midwest',
-    year == 2020
-  ) %>%
-  ggplot() +
-  geom_point(aes(x = month, y = cases,), shape = 1) +
-  geom_point(aes(x = month, y = price/coeff)) +
-  scale_y_continuous(
-    name = "Number of Cases",
-    sec.axis = sec_axis(~.*coeff, name="Price per Pound ($)")
-  ) +
-  theme_common() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  facet_grid(~ year) +
-  ggtitle("Price of All Pork Chop vs Number of Coronavirus Cases in the Midwest")
-```
-
-# Presentation Plots:
-
-```{r}
+```{r pork-chop}
 coeff <- 0.003
 full_dataset %>%
+  # Update the price to fit scale
   mutate(
     price = (price - 2) / coeff
   ) %>%
- # pivot_longer(
-    #cols = c(cases, price, cases_per100k),
-    #names_to = "variable",
-    #values_to = "value"
-  #) %>%
+  # Select the right item & years
   filter(
     item == 'FD3101',
-    # area_name == 'Midwest',
     year >= 2017,
-    #variable == "cases_per100k" | variable == "price"
   ) %>%
+  # Group years
   mutate(
-    year_code = ifelse(year < 2020, "Previous Year Prices", "Price 2020")
-    # year = as.character(year)
+    year_code = ifelse(year < 2020, "2017-2019 Prices", "Price 2020")
   ) %>%
   ggplot(aes(x = month)) +
-  # geom_point(aes(y = price, color = paste(year, " Price"))) +
-  # geom_line(aes(y = price, color = paste(year, " Price"), group = year)) +
   geom_point(aes(y = price, color = year_code)) +
   geom_line(aes(y = price, color = year_code, group = year)) +
   scale_color_manual(
-    values = c("Previous Year Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
+    values = c("2017-2019 Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
     name = "Legend",
-    breaks = c("Previous Year Prices", "Price 2020", "COVID Cases Per 100k")) +
+    breaks = c("2017-2019 Prices", "Price 2020", "COVID Cases Per 100k")) +
   geom_point(aes(y = cases_per100k)) + 
   geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
   scale_y_continuous(
@@ -328,7 +260,6 @@ full_dataset %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
         strip.text.y = element_text(size = 10, angle = 270),
         aspect.ratio = 0.5,
-        # legend.title=element_blank()
         ) +
   facet_wrap(~ area_name) +
   xlab("Month") +
@@ -337,38 +268,65 @@ full_dataset %>%
 
 **Notes**:
 
-The purpose of this graph was to illustrate the general trends of Pork Chop prices by pound in the four US regions over time.  It should be noted that there are gaps in the Northeast Porkchop prices in April. Generally the prices of pork chops are elevated in all regions from where they initially quite close together in January. Data from 2019 pork prices were included to show typical monthly variance in price by region. 
+We investigated the price per pound of pork chops in the four US regions during the pandemic, with previous years as a baseline for comparison. In this graph, we can see that the price per pound of pork chops in all the regions were generally close together and close to the baseline in January 2020, but increased between March and July 2020. For the Midwest and the South, this rise was steady, matching the rise of COVID cases. However, the Midwest peak in pork chop price occurred when the COVID cases declined for the first time in June 2020, and that the South’s pork chop price peak was before the COVID cases peak. It is harder to tell the relationship between pork chop prices and COVID cases in the Northeast and the West due to significant missing data. For the Northeast, prices were higher in June 2020 than they were in March 2020 at the beginning of the pandemic, but the missing data makes it difficult to determine exactly how that rise happened. With the West, there is a large stretch of missing data for price between March and June 2020, which are significant months for the progress of the pandemic and therefore make it difficult to reach any conclusions.
 
-```{r}
+
+```{r pork-chop-midwest}
+full_dataset %>%
+  # Denote cases and price as two separate variables and combine into one column for ease in graphing
+  pivot_longer(
+    cols = c(cases, price, cases_per100k),
+    names_to = "Variable",
+    values_to = "Value"
+  ) %>%
+  mutate(
+    Variable = ifelse(Variable == "cases_per100k", "Cases Per 100k", ifelse(Variable == "price", "Price", Variable))
+  ) %>%
+  # Select the right data set & year
+  filter(
+    item == 'FD3101',
+    area_name == 'Midwest',
+    year >= 2019,
+    Variable == "Cases Per 100k" | Variable == "Price"
+  ) %>%
+  ggplot() +
+  geom_point(aes(x = month, y = Value, color = Variable)) +
+  theme_common() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        strip.text.y = element_text(size = 12, angle = 270),
+        aspect.ratio = 0.5) +
+  facet_grid(Variable ~ year, scales = "free") +
+  ggtitle("Pork Chop Price vs. COVID Cases- Midwest") +
+  xlab("Month")
+```
+**Notes**:
+
+The purpose of this graph was to get a closer look at the trends just in the Midwest, as this region had an interesting spike in cases starting in the summer and we know that there are a number of pork plants in the Midwest. From March to June, the number of cases and price per pound of pork chops seem to follow an almost identical increase by month. However by June the price per pound of pork chops began to decline, remaining roughly fifty cents higher than the original price, whereas the number of cases in the Midwest after June appear to be increasing as well as the rate at which the number of cases are increasing each month. The decline in price may be due to the relaxation of regulations around June, allowing workers to return to the pork processing plants and people interacting more with each other without mandated masks or social distancing, or due to restrictions placed by grocery stores on the amount of meat that customers could buy.
+
+
+```{r ground-beef}
 coeff <- 0.003
 full_dataset %>%
+  # Update price to fit scale
   mutate(
     price = (price - 2) / coeff
   ) %>%
- # pivot_longer(
-    #cols = c(cases, price, cases_per100k),
-    #names_to = "variable",
-    #values_to = "value"
-  #) %>%
+  # Select right item & years
   filter(
     item == 'FC1101',
-    # area_name == 'Midwest',
     year >= 2017,
-    #variable == "cases_per100k" | variable == "price"
   ) %>%
+  # Group years
   mutate(
-    year_code = ifelse(year < 2020, "Previous Year Prices", "Price 2020")
-    # year = as.character(year)
+    year_code = ifelse(year < 2020, "2017-2019 Prices", "Price 2020")
   ) %>%
   ggplot(aes(x = month)) +
-  # geom_point(aes(y = price, color = paste(year, " Price"))) +
-  # geom_line(aes(y = price, color = paste(year, " Price"), group = year)) +
   geom_point(aes(y = price, color = year_code)) +
   geom_line(aes(y = price, color = year_code, group = year)) +
   scale_color_manual(
-    values = c("Previous Year Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
+    values = c("2017-2019 Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
     name = "Legend",
-    breaks = c("Previous Year Prices", "Price 2020", "COVID Cases Per 100k")) +
+    breaks = c("2017-2019 Prices", "Price 2020", "COVID Cases Per 100k")) +
   geom_point(aes(y = cases_per100k)) + 
   geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
   scale_y_continuous(
@@ -379,7 +337,6 @@ full_dataset %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
         strip.text.y = element_text(size = 10, angle = 270),
         aspect.ratio = 0.5,
-        # legend.title=element_blank()
         ) +
   facet_wrap(~ area_name) +
   xlab("Month") +
@@ -388,40 +345,33 @@ full_dataset %>%
 
 **Notes**:
 
-Within this figure, we can see increases in price for beef in all regions around June.  This also appears to loosely correspond to when coronavirus cases began to increase mostly in the Northeast and South.  The time of the spike in the Northeast appears to roughly equate to the time in which the price of ground beef increased in price throughout all regions within the United States.  Interestingly it appears that the price of beef in the midwest was highest when coronavirus cases spiked downward for one month.
+Next, we investigated the price for ground beef in all regions during the pandemic, using a similar graph as the previous. In this graph, we can see that the price for beef in all regions increased around June. For the South this lines up with when the COVID cases started to increase, but this is not the case for other regions. For example, in the Northeast, cases were declining even as the beef price was increasing, and for the Midwest, the beef price increased when the COVID cases were decreasing for the first time. The West has a large gap of missing data from March to June that makes it difficult to interpret.
 
 
 
-```{r}
+```{r chicken-breast}
 coeff <- 0.003
 full_dataset %>%
+  # Update price to fit scale
   mutate(
     price = (price - 2) / coeff
   ) %>%
- # pivot_longer(
-    #cols = c(cases, price, cases_per100k),
-    #names_to = "variable",
-    #values_to = "value"
-  #) %>%
+  # Select right item and years
   filter(
     item == 'FF1101',
-    # area_name == 'Midwest',
     year >= 2017,
-    #variable == "cases_per100k" | variable == "price"
   ) %>%
+  # Group years
   mutate(
-    year_code = ifelse(year < 2020, "Previous Year Prices", "Price 2020")
-    # year = as.character(year)
+    year_code = ifelse(year < 2020, "2017-2019 Prices", "Price 2020")
   ) %>%
   ggplot(aes(x = month)) +
-  # geom_point(aes(y = price, color = paste(year, " Price"))) +
-  # geom_line(aes(y = price, color = paste(year, " Price"), group = year)) +
   geom_point(aes(y = price, color = year_code)) +
   geom_line(aes(y = price, color = year_code, group = year)) +
   scale_color_manual(
-    values = c("Previous Year Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
+    values = c("2017-2019 Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
     name = "Legend",
-    breaks = c("Previous Year Prices", "Price 2020", "COVID Cases Per 100k")) +
+    breaks = c("2017-2019 Prices", "Price 2020", "COVID Cases Per 100k")) +
   geom_point(aes(y = cases_per100k)) + 
   geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
   scale_y_continuous(
@@ -432,7 +382,6 @@ full_dataset %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
         strip.text.y = element_text(size = 10, angle = 270),
         aspect.ratio = 0.5,
-        # legend.title=element_blank()
         ) +
   facet_wrap(~ area_name) +
   xlab("Month") +
@@ -441,14 +390,35 @@ full_dataset %>%
 
 **Notes**:
 
-Within this figure, we can see that the price of chicken breast remained much more steady than prices of other items we previously looked at.  There appears to be a slight increase in price, which is most noticeable in the Midwest and the Northeast, but for the most part it remained steady.  Increasingly there appears to be missing data during April and May for the West and just in May for the Northeast.  However, the surrounding months do not appear to fluctuate like they had for other types of meats.
+Next, we did a similar investigation of the price of chicken breasts in all regions during the pandemic. As compared to the other items, the price of chicken breasts remained much more steady in most of the regions, with the exception of the Midwest. As the COVID cases started increasing, the price for chicken breast first decreased in March and then increased steadily through April and June. However, it was still not much higher than in previous years (especially when comparing the fluctuation of chicken breast price to other items).
 
 ## Dataset Commentary:
 
+It’s important to note that the BLS dataset we used for prices has a number of important gaps. For example, the price for each item in the dataset seems to be missing quite a bit of data and in ways that are variable. For instance, there was no data for the price of chicken in the Northeast from October 2019 through 2020. Given that the gap of data began well before the pandemic, it’s likely not linked, but the BLS website doesn’t give any indication of why the data might be missing. Similarly, there is missing data for the prices of ground beef in the West from March to June in 2020, which is a significant period of time when considering the trajectory of the pandemic. These gaps in the data make it difficult to confidently make broad generalizations about the effect of the pandemic on prices of these products.
+
+The missing data could be for a number of reasons; for example, it’s possible that missing data in the early months of the pandemic are due to the government offices that collect this data being closed. However, the BLS doesn’t provide any specific information on the missing data, so we can only hypothesize.
+
+In addition to issues within the BLS dataset, there were also issues combining the BLS dataset with the NYT dataset. The BLS dataset has a lower resolution of data; i.e., the geographical data is encoded by region rather than by county. Fortunately, the BLS site had a clear breakdown of what each region meant, but it does make it difficult to understand why certain changes in prices might’ve occurred. On the region level, it’s difficult to discern the difference between, for example, California and Utah--two very different states that would be lumped into the same region.
+
+Finally, it is also important to acknowledge the questionability of the NYT COVID data due to the difficulties in getting accurate data on coronavirus cases. This is because every state has different procedures for testing, with some implementing wide-scale testing and others not. This means that looking at the data from a region-level introduces a higher potential for confounding variables skewing the data.
 
 # Conclusions:
 
+We investigated the effect of the pandemic through the lens of case count. Since the beginning of the pandemic, it is clear that prices have risen for some meat products (like ground beef and pork chops). However, we cannot conclude that the case count was the direct contributor to these price changes, because an increase in prices doesn't always coincide with an increase in cases. This may be because there are a number of confounding variables related to case count (for example, the workforce at meat processing plants; social distancing guidelines; testing procedures; governmental regulations; livestock supply; lifestyle changes). We also cannot make a broad generalization that the pandemic affected *every* product, since the price of chicken breasts didn't seem to change drastically. 
+
+We noted that in all the products we examined, while prices might've increased at some point, they stabilized afterwards, even though cases continued to rise or did not stabilize. This could imply that the initial rise in prices was due to pandemic panic and everyone adjusting to the pandemic, versus the actual spread of the virus. The current stabilization may be a consequence of us becoming used to living in a pandemic.
 
 ## Further Questions:
 
-- What happened to the missing data? It’s unlikely the northeast just stopped consuming chicken, so why is there no data on it since last October? Other items also have similar gaps.  
+- What happened to the missing data? 
+
+- How did regulations on both the distribution and purchasing of meat affect the consumer price? (For example, how did grocery stores limiting the amount of meat consumers purchase affect consumer price?) 
+
+- What kind of governmental regulations might have led meat prices to either remain stable or stabilize earlier?
+
+- How will the price of meat change throughout the rest of and after the pandemic? Will meat prices remain higher than usual even after the pandemic?
+
+- Could investigating the public perception of the pandemic and people's comfort levels within the pandemic help us understand why prices increased from another lens, beyond case count?
+
+## Sources / Relevant Reading
+- [https://www.bls.gov/opub/mlr/2020/article/the-impact-of-the-covid-19-pandemic-on-food-price-indexes-and-data-collection.htm]

@@ -1,0 +1,670 @@
+Analyzing the Impact of the Pandemic on Meat Prices
+================
+2020-10-26
+
+-   [Report](#report)
+-   [Setup](#setup)
+-   [What question did you set out to
+    answer?:](#what-question-did-you-set-out-to-answer)
+-   [What data did you find to help answer that
+    question?](#what-data-did-you-find-to-help-answer-that-question)
+-   [What is the relevant background on your
+    question?](#what-is-the-relevant-background-on-your-question)
+-   [Analysis](#analysis)
+    -   [Dataset Commentary:](#dataset-commentary)
+-   [Conclusions:](#conclusions)
+    -   [Further Questions:](#further-questions)
+    -   [Sources / Relevant Reading](#sources-relevant-reading)
+
+Report
+------
+
+<!-- ------------------------- -->
+
+The report is the knitted version of the **current document** (this
+Rmd).
+
+| Category    | Unsatisfactory                                                                                                   | Satisfactory                                                                                                              |
+|-------------|------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| Effort      | Some task **q**’s left unattempted                                                                               | All task **q**’s attempted                                                                                                |
+| Observed    | Did not document observations, or observations incorrect                                                         | Documented correct observations based on analysis                                                                         |
+| Supported   | Some observations not supported by analysis, or errors in analysis                                               | All observations clearly and correctly supported by analysis (table, graph, etc.)                                         |
+| Assessed    | Observations include claims not supported by the data, or reflect a level of certainty not warranted by the data | Observations are appropriately qualified by the quality & relevance of the data and the (in)conclusiveness of the Support |
+| Code Styled | Violations of the [style guide](https://style.tidyverse.org/) hinder readability                                 | Code sufficiently close to the [style guide](https://style.tidyverse.org/)                                                |
+
+Setup
+-----
+
+    library(tidyverse)
+
+    ## ── Attaching packages ─────────────────────────────────────────────────── tidyverse 1.3.0 ──
+
+    ## ✓ ggplot2 3.3.2     ✓ purrr   0.3.4
+    ## ✓ tibble  3.0.3     ✓ dplyr   1.0.2
+    ## ✓ tidyr   1.1.2     ✓ stringr 1.4.0
+    ## ✓ readr   1.3.1     ✓ forcats 0.5.0
+
+    ## ── Conflicts ────────────────────────────────────────────────────── tidyverse_conflicts() ──
+    ## x dplyr::filter() masks stats::filter()
+    ## x dplyr::lag()    masks stats::lag()
+
+    ## NOTE: No need to edit; feel free to re-use this code!
+    theme_common <- function() {
+      theme_minimal() %+replace%
+      theme(
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(margin = margin(4, 4, 4, 4), size = 16),
+        axis.title.y = element_text(margin = margin(4, 4, 4, 4), size = 16, angle = 90),
+
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+
+        strip.text.x = element_text(size = 12),
+        strip.text.y = element_text(size = 12),
+
+        panel.grid.major = element_line(color = "grey90"),
+        panel.grid.minor = element_line(color = "grey90"),
+
+        aspect.ratio = 4 / 4,
+
+        plot.margin = unit(c(t = +0, b = +0, r = +0, l = +0), "cm"),
+        plot.title = element_text(size = 18),
+        plot.title.position = "plot",
+        plot.subtitle = element_text(size = 16),
+        plot.caption = element_text(size = 12)
+      )
+    }
+
+What question did you set out to answer?:
+-----------------------------------------
+
+How did the pandemic affect food prices within the United States?
+
+What data did you find to help answer that question?
+----------------------------------------------------
+
+-   We used the New York Times coronavirus cases count for each state
+    (<a href="https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv" class="uri">https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv</a>)
+
+-   We used price data from the Bureau of Labor Statistics’s Consumer
+    Price Index to determine the price of each item over time
+    (<a href="https://www.bls.gov/cpi/data.html" class="uri">https://www.bls.gov/cpi/data.html</a>)
+
+-   We used population data from the census to obtain the population for
+    each state.
+
+What is the relevant background on your question?
+-------------------------------------------------
+
+-   During the first few months of the pandemic, as everywhere locked
+    down, we started to see news reports about food prices going nuts.
+    We saw ourselves at the grocery store that some item prices were
+    lower than ever, while some were through the roof. We wanted to see
+    if this anecdotal evidence was supported by the data.
+
+-   During the first few months of the pandemic, many businesses and
+    facilities had to be shut down as they could not be determined to be
+    safe to work in or have the proper equipment to ensure the safety of
+    their workers. Because of this shutdown, many sources of food,
+    especially meat, dairy, and eggs; did not have people to process
+    these often quick to perish food items. Many animals had to be
+    culled as there would be a surplus for processing and upkeep of such
+    animals would cost too much. However meatpacking plants and other
+    food facilities were soon deemed a necessity and their workers
+    essential. This caused a shortage in animal products in the
+    following months that could be observed by many consumers through
+    drastically increased product prices. We wanted to investigate our
+    own observations in price changes of animal products over the past
+    few months in this project.
+
+-   Part of the rise of prices for some food items could also be due to
+    increased demand, as people stocked up on food to limit their trips
+    to the store and shifted to eating at home rather than eating at
+    restaurants.
+
+-   Another bit of relevant context to keep in mind is that prices
+    change on a different time scale than COVID cases (and both are
+    reported on a different time scale). There is at least a two-week
+    delay in terms of getting accurate data on COVID cases, and this is
+    of course, dependent on an individual county or state’s testing
+    procedures. There may be a similar lag for prices as individual
+    distributors and vendors react to the changing demand.
+
+<!-- -->
+
+    # Load and combine region data
+    mw <- read.csv("data/midwest_bls_cpi.csv", skip = 3, header = TRUE) 
+    ne = read.csv("data/northeast_bls_cpi.csv", skip = 3, header = TRUE)
+    s = read.csv("data/south_bls_cpi.csv", skip = 3, header = TRUE)
+    w = read.csv("data/west_bls_cpi.csv", skip = 3, header = TRUE)
+    data = rbind(mw, ne, s, w)
+    # Load area & item codes
+    area_codes = read.csv("data/area_codes.csv")
+    item_codes = read.csv("data/item_codes.csv", sep ="\t")
+
+    # Map area & item data
+    mon = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    data_split <- data %>% 
+      separate(
+        col = 1,
+        into = c("AP", "Seasonal Adjust", "area", "item"), 
+        sep = c(2, 3, 7)
+      ) %>% 
+      mutate(
+        item = replace(item, item == "712111", "712112")
+      ) %>%
+      merge(
+        item_codes, by.x = "item", by.y = "item_code"
+      ) %>%
+      merge(
+        area_codes %>% select(-X), by.x = "area", by.y = "area_code"
+      ) %>% 
+      pivot_longer(
+        cols = (-c("AP", "Seasonal Adjust", "area", "item", "item_name", "area_name")),
+        names_to = "date",
+        values_to = "price"
+      ) %>% 
+      separate(
+        col = "date",
+        into = c("month", "year"),
+        sep = "_"
+      ) %>% 
+      mutate(
+        year = as.integer(year),
+        month = factor(month, mon, ordered = TRUE)
+      ) 
+
+    # Import the list of states with what region they belong to
+    states <- read_csv("data/states_with_regions.csv")
+
+    ## Parsed with column specification:
+    ## cols(
+    ##   state = col_character(),
+    ##   region = col_character()
+    ## )
+
+    # Get the live data from the NYT repo
+    url_state <- 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
+    filename_nyt <- "./data/us_states.csv"
+
+    curl::curl_download(
+            url_state,
+            destfile = filename_nyt
+          )
+
+    df_covid <- read_csv(filename_nyt) %>%
+      # Separate YYYY-MM-DD into 3 columns
+      separate( 
+        col = date,
+        sep = '-',
+        into = c("year", "month", "day")
+      ) %>% 
+      # Make year month day into integers
+      mutate( 
+        year = as.integer(year),
+        month = as.integer(month),
+        day = as.integer(day)
+      ) %>%
+      # Group by these values to keep them
+      group_by(state, year, month, fips) %>% 
+      # Summarize to get total cases over each month in each state
+      summarize( 
+        cases = max(cases, na.rm = TRUE),
+        deaths = max(deaths, na.rm = TRUE)
+      ) %>%
+      # Add in the region for this state
+      left_join(states, by = "state") 
+
+    ## Parsed with column specification:
+    ## cols(
+    ##   date = col_date(format = ""),
+    ##   state = col_character(),
+    ##   fips = col_character(),
+    ##   cases = col_double(),
+    ##   deaths = col_double()
+    ## )
+
+    ## `summarise()` regrouping output by 'state', 'year', 'month' (override with `.groups` argument)
+
+    df_covid
+
+    ## # A tibble: 454 x 7
+    ## # Groups:   state, year, month [454]
+    ##    state    year month fips   cases deaths region
+    ##    <chr>   <int> <int> <chr>  <dbl>  <dbl> <chr> 
+    ##  1 Alabama  2020     3 01       999     14 South 
+    ##  2 Alabama  2020     4 01      7068    272 South 
+    ##  3 Alabama  2020     5 01     17952    630 South 
+    ##  4 Alabama  2020     6 01     38045    950 South 
+    ##  5 Alabama  2020     7 01     87723   1580 South 
+    ##  6 Alabama  2020     8 01    126058   2182 South 
+    ##  7 Alabama  2020     9 01    154701   2540 South 
+    ##  8 Alabama  2020    10 01    184355   2866 South 
+    ##  9 Alaska   2020     3 02       133      2 West  
+    ## 10 Alaska   2020     4 02       353      7 West  
+    ## # … with 444 more rows
+
+    # Read the population data
+    filename_population <- "./data/ACSDT5Y2018.B01003_data_with_overlays_2020-10-22T174815.csv"
+
+    df_pop <- read_csv(filename_population, skip = 1) %>%
+      # Assign each state a region
+      left_join(states, by = "state") %>% 
+      # Rename population
+      select( 
+        state,
+        population_2018 = `Estimate!!Total`,
+        region = region
+      ) %>%
+      group_by(region) %>%
+      # Get the population for each region
+      summarize( 
+        population = sum(population_2018, na.rm = TRUE)
+      ) %>%
+      # Get rid of the NA region that was from the row of state = United States
+      filter(is.na(region) == FALSE) 
+
+    ## Parsed with column specification:
+    ## cols(
+    ##   id = col_character(),
+    ##   state = col_character(),
+    ##   `Estimate!!Total` = col_double(),
+    ##   `Margin of Error!!Total` = col_character()
+    ## )
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    # Add the population data to the COVID dataframe
+    df_covid_total <- df_covid %>%
+      # Change numeric month into mon, the same format as the price data
+      mutate( 
+        month = factor(month, levels = c(1,2,3,4,5,6,7,8,9,10,11,12), labels = mon, ordered = TRUE),
+        .keep = "unused"
+      ) %>%
+      group_by(year, month, region) %>%
+      summarize(
+        cases = sum(cases, na.rm = TRUE),
+        deaths = sum(deaths, na.rm = TRUE)
+      ) %>%
+      filter(is.na(region) == FALSE)
+
+    ## `summarise()` regrouping output by 'year', 'month' (override with `.groups` argument)
+
+    df_covid_total
+
+    ## # A tibble: 38 x 5
+    ## # Groups:   year, month [10]
+    ##     year month region     cases deaths
+    ##    <int> <ord> <chr>      <dbl>  <dbl>
+    ##  1  2020 Jan   Midwest        2      0
+    ##  2  2020 Jan   West           5      0
+    ##  3  2020 Feb   Midwest       17      0
+    ##  4  2020 Feb   Northeast      1      0
+    ##  5  2020 Feb   South         11      0
+    ##  6  2020 Feb   West          41      1
+    ##  7  2020 Mar   Midwest    22692    564
+    ##  8  2020 Mar   Northeast 111342   2463
+    ##  9  2020 Mar   South      31885    701
+    ## 10  2020 Mar   West       22510    576
+    ## # … with 28 more rows
+
+    # Merge the covid dataframe into the price dataframe
+    full_dataset <- data_split %>% 
+      left_join(df_covid_total, by = c("area_name" = "region", "month", "year")) %>%
+      left_join(df_pop, by = c("area_name" = "region")) %>%
+      mutate(
+        cases = cases - lag(cases),
+        deaths = deaths - lag(deaths)
+      ) %>%
+      # Calculate cases per 100k
+      mutate(
+        cases_per100k = (cases/population) * 100000,
+        deaths_per100k = (deaths/population) * 100000
+      )
+    full_dataset
+
+    ## # A tibble: 76,032 x 14
+    ##    area  item  AP    `Seasonal Adjus… item_name area_name month  year price
+    ##    <chr> <chr> <chr> <chr>            <chr>     <chr>     <ord> <int> <dbl>
+    ##  1 0100  7022… AP    U                Bread, w… Northeast Jan    2010    NA
+    ##  2 0100  7022… AP    U                Bread, w… Northeast Feb    2010    NA
+    ##  3 0100  7022… AP    U                Bread, w… Northeast Mar    2010    NA
+    ##  4 0100  7022… AP    U                Bread, w… Northeast Apr    2010    NA
+    ##  5 0100  7022… AP    U                Bread, w… Northeast May    2010    NA
+    ##  6 0100  7022… AP    U                Bread, w… Northeast Jun    2010    NA
+    ##  7 0100  7022… AP    U                Bread, w… Northeast Jul    2010    NA
+    ##  8 0100  7022… AP    U                Bread, w… Northeast Aug    2010    NA
+    ##  9 0100  7022… AP    U                Bread, w… Northeast Sep    2010    NA
+    ## 10 0100  7022… AP    U                Bread, w… Northeast Oct    2010    NA
+    ## # … with 76,022 more rows, and 5 more variables: cases <dbl>, deaths <dbl>,
+    ## #   population <dbl>, cases_per100k <dbl>, deaths_per100k <dbl>
+
+Analysis
+========
+
+We investigated three meat products (pork chops, ground beef, and
+chicken breasts) as they were the three products with sufficient data
+and encompassed a number of more specific animal products. (For example,
+there are several different kinds of ground beef products, which are all
+encapsulated in the ground beef category).
+
+    coeff <- 0.003
+    full_dataset %>%
+      # Update the price to fit scale
+      mutate(
+        price = (price - 2) / coeff
+      ) %>%
+      # Select the right item & years
+      filter(
+        item == 'FD3101',
+        year >= 2017,
+      ) %>%
+      # Group years
+      mutate(
+        year_code = ifelse(year < 2020, "2017-2019 Prices", "Price 2020")
+      ) %>%
+      ggplot(aes(x = month)) +
+      geom_point(aes(y = price, color = year_code)) +
+      geom_line(aes(y = price, color = year_code, group = year)) +
+      scale_color_manual(
+        values = c("2017-2019 Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
+        name = "Legend",
+        breaks = c("2017-2019 Prices", "Price 2020", "COVID Cases Per 100k")) +
+      geom_point(aes(y = cases_per100k)) + 
+      geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
+      scale_y_continuous(
+        name = "Cases Per 100k",
+        sec.axis = sec_axis(~.*coeff + 2, name="Price ($USD)")
+      ) +
+      theme_common() +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1),
+            strip.text.y = element_text(size = 10, angle = 270),
+            aspect.ratio = 0.5,
+            ) +
+      facet_wrap(~ area_name) +
+      xlab("Month") +
+      ggtitle("Pork Price (per lb) and COVID Cases by Region")
+
+    ## Warning: Removed 15 rows containing missing values (geom_point).
+
+    ## Warning: Removed 3 row(s) containing missing values (geom_path).
+
+    ## Warning: Removed 158 rows containing missing values (geom_point).
+
+    ## Warning: Removed 147 row(s) containing missing values (geom_path).
+
+![](covid_meat_prices_report_files/figure-gfm/pork-chop-1.png)<!-- -->
+
+**Notes**:
+
+We investigated the price per pound of pork chops in the four US regions
+during the pandemic, with previous years as a baseline for comparison.
+In this graph, we can see that the price per pound of pork chops in all
+the regions were generally close together and close to the baseline in
+January 2020, but increased between March and July 2020. For the Midwest
+and the South, this rise was steady, matching the rise of COVID cases.
+However, the Midwest peak in pork chop price occurred when the COVID
+cases declined for the first time in June 2020, and that the South’s
+pork chop price peak was before the COVID cases peak. It is harder to
+tell the relationship between pork chop prices and COVID cases in the
+Northeast and the West due to significant missing data. For the
+Northeast, prices were higher in June 2020 than they were in March 2020
+at the beginning of the pandemic, but the missing data makes it
+difficult to determine exactly how that rise happened. With the West,
+there is a large stretch of missing data for price between March and
+June 2020, which are significant months for the progress of the pandemic
+and therefore make it difficult to reach any conclusions.
+
+    full_dataset %>%
+      # Denote cases and price as two separate variables and combine into one column for ease in graphing
+      pivot_longer(
+        cols = c(cases, price, cases_per100k),
+        names_to = "Variable",
+        values_to = "Value"
+      ) %>%
+      mutate(
+        Variable = ifelse(Variable == "cases_per100k", "Cases Per 100k", ifelse(Variable == "price", "Price", Variable))
+      ) %>%
+      # Select the right data set & year
+      filter(
+        item == 'FD3101',
+        area_name == 'Midwest',
+        year >= 2019,
+        Variable == "Cases Per 100k" | Variable == "Price"
+      ) %>%
+      ggplot() +
+      geom_point(aes(x = month, y = Value, color = Variable)) +
+      theme_common() +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1),
+            strip.text.y = element_text(size = 12, angle = 270),
+            aspect.ratio = 0.5) +
+      facet_grid(Variable ~ year, scales = "free") +
+      ggtitle("Pork Chop Price vs. COVID Cases- Midwest") +
+      xlab("Month")
+
+    ## Warning: Removed 18 rows containing missing values (geom_point).
+
+![](covid_meat_prices_report_files/figure-gfm/pork-chop-midwest-1.png)<!-- -->
+**Notes**:
+
+The purpose of this graph was to get a closer look at the trends just in
+the Midwest, as this region had an interesting spike in cases starting
+in the summer and we know that there are a number of pork plants in the
+Midwest. From March to June, the number of cases and price per pound of
+pork chops seem to follow an almost identical increase by month. However
+by June the price per pound of pork chops began to decline, remaining
+roughly fifty cents higher than the original price, whereas the number
+of cases in the Midwest after June appear to be increasing as well as
+the rate at which the number of cases are increasing each month. The
+decline in price may be due to the relaxation of regulations around
+June, allowing workers to return to the pork processing plants and
+people interacting more with each other without mandated masks or social
+distancing, or due to restrictions placed by grocery stores on the
+amount of meat that customers could buy.
+
+    coeff <- 0.003
+    full_dataset %>%
+      # Update price to fit scale
+      mutate(
+        price = (price - 2) / coeff
+      ) %>%
+      # Select right item & years
+      filter(
+        item == 'FC1101',
+        year >= 2017,
+      ) %>%
+      # Group years
+      mutate(
+        year_code = ifelse(year < 2020, "2017-2019 Prices", "Price 2020")
+      ) %>%
+      ggplot(aes(x = month)) +
+      geom_point(aes(y = price, color = year_code)) +
+      geom_line(aes(y = price, color = year_code, group = year)) +
+      scale_color_manual(
+        values = c("2017-2019 Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
+        name = "Legend",
+        breaks = c("2017-2019 Prices", "Price 2020", "COVID Cases Per 100k")) +
+      geom_point(aes(y = cases_per100k)) + 
+      geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
+      scale_y_continuous(
+        name = "Cases Per 100k",
+        sec.axis = sec_axis(~.*coeff + 2, name="Price ($USD)")
+      ) +
+      theme_common() +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1),
+            strip.text.y = element_text(size = 10, angle = 270),
+            aspect.ratio = 0.5,
+            ) +
+      facet_wrap(~ area_name) +
+      xlab("Month") +
+      ggtitle("Ground Beef Price (per lb) and COVID Cases by Region")
+
+    ## Warning: Removed 14 rows containing missing values (geom_point).
+
+    ## Warning: Removed 3 row(s) containing missing values (geom_path).
+
+    ## Warning: Removed 158 rows containing missing values (geom_point).
+
+    ## Warning: Removed 147 row(s) containing missing values (geom_path).
+
+![](covid_meat_prices_report_files/figure-gfm/ground-beef-1.png)<!-- -->
+
+**Notes**:
+
+Next, we investigated the price for ground beef in all regions during
+the pandemic, using a similar graph as the previous. In this graph, we
+can see that the price for beef in all regions increased around June.
+For the South this lines up with when the COVID cases started to
+increase, but this is not the case for other regions. For example, in
+the Northeast, cases were declining even as the beef price was
+increasing, and for the Midwest, the beef price increased when the COVID
+cases were decreasing for the first time. The West has a large gap of
+missing data from March to June that makes it difficult to interpret.
+
+    coeff <- 0.003
+    full_dataset %>%
+      # Update price to fit scale
+      mutate(
+        price = (price - 2) / coeff
+      ) %>%
+      # Select right item and years
+      filter(
+        item == 'FF1101',
+        year >= 2017,
+      ) %>%
+      # Group years
+      mutate(
+        year_code = ifelse(year < 2020, "2017-2019 Prices", "Price 2020")
+      ) %>%
+      ggplot(aes(x = month)) +
+      geom_point(aes(y = price, color = year_code)) +
+      geom_line(aes(y = price, color = year_code, group = year)) +
+      scale_color_manual(
+        values = c("2017-2019 Prices" = "grey", "Price 2020" = "blue", "COVID Cases Per 100k" = "black"), 
+        name = "Legend",
+        breaks = c("2017-2019 Prices", "Price 2020", "COVID Cases Per 100k")) +
+      geom_point(aes(y = cases_per100k)) + 
+      geom_line(aes(y = cases_per100k, group = year, color = "COVID Cases Per 100k")) +
+      scale_y_continuous(
+        name = "Cases Per 100k",
+        sec.axis = sec_axis(~.*coeff + 2, name="Price ($USD)")
+      ) +
+      theme_common() +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1),
+            strip.text.y = element_text(size = 10, angle = 270),
+            aspect.ratio = 0.5,
+            ) +
+      facet_wrap(~ area_name) +
+      xlab("Month") +
+      ggtitle("Chicken Breast Price (per lb) and COVID Cases by Region")
+
+    ## Warning: Removed 15 rows containing missing values (geom_point).
+
+    ## Warning: Removed 3 row(s) containing missing values (geom_path).
+
+    ## Warning: Removed 158 rows containing missing values (geom_point).
+
+    ## Warning: Removed 147 row(s) containing missing values (geom_path).
+
+![](covid_meat_prices_report_files/figure-gfm/chicken-breast-1.png)<!-- -->
+
+**Notes**:
+
+Next, we did a similar investigation of the price of chicken breasts in
+all regions during the pandemic. As compared to the other items, the
+price of chicken breasts remained much more steady in most of the
+regions, with the exception of the Midwest. As the COVID cases started
+increasing, the price for chicken breast first decreased in March and
+then increased steadily through April and June. However, it was still
+not much higher than in previous years (especially when comparing the
+fluctuation of chicken breast price to other items).
+
+Dataset Commentary:
+-------------------
+
+It’s important to note that the BLS dataset we used for prices has a
+number of important gaps. For example, the price for each item in the
+dataset seems to be missing quite a bit of data and in ways that are
+variable. For instance, there was no data for the price of chicken in
+the Northeast from October 2019 through 2020. Given that the gap of data
+began well before the pandemic, it’s likely not linked, but the BLS
+website doesn’t give any indication of why the data might be missing.
+Similarly, there is missing data for the prices of ground beef in the
+West from March to June in 2020, which is a significant period of time
+when considering the trajectory of the pandemic. These gaps in the data
+make it difficult to confidently make broad generalizations about the
+effect of the pandemic on prices of these products.
+
+The missing data could be for a number of reasons; for example, it’s
+possible that missing data in the early months of the pandemic are due
+to the government offices that collect this data being closed. However,
+the BLS doesn’t provide any specific information on the missing data, so
+we can only hypothesize.
+
+In addition to issues within the BLS dataset, there were also issues
+combining the BLS dataset with the NYT dataset. The BLS dataset has a
+lower resolution of data; i.e., the geographical data is encoded by
+region rather than by county. Fortunately, the BLS site had a clear
+breakdown of what each region meant, but it does make it difficult to
+understand why certain changes in prices might’ve occurred. On the
+region level, it’s difficult to discern the difference between, for
+example, California and Utah–two very different states that would be
+lumped into the same region.
+
+Finally, it is also important to acknowledge the questionability of the
+NYT COVID data due to the difficulties in getting accurate data on
+coronavirus cases. This is because every state has different procedures
+for testing, with some implementing wide-scale testing and others not.
+This means that looking at the data from a region-level introduces a
+higher potential for confounding variables skewing the data.
+
+Conclusions:
+============
+
+We investigated the effect of the pandemic through the lens of case
+count. Since the beginning of the pandemic, it is clear that prices have
+risen for some meat products (like ground beef and pork chops). However,
+we cannot conclude that the case count was the direct contributor to
+these price changes, because an increase in prices doesn’t always
+coincide with an increase in cases. This may be because there are a
+number of confounding variables related to case count (for example, the
+workforce at meat processing plants; social distancing guidelines;
+testing procedures; governmental regulations; livestock supply;
+lifestyle changes). We also cannot make a broad generalization that the
+pandemic affected *every* product, since the price of chicken breasts
+didn’t seem to change drastically.
+
+We noted that in all the products we examined, while prices might’ve
+increased at some point, they stabilized afterwards, even though cases
+continued to rise or did not stabilize. This could imply that the
+initial rise in prices was due to pandemic panic and everyone adjusting
+to the pandemic, versus the actual spread of the virus. The current
+stabilization may be a consequence of us becoming used to living in a
+pandemic.
+
+Further Questions:
+------------------
+
+-   What happened to the missing data?
+
+-   How did regulations on both the distribution and purchasing of meat
+    affect the consumer price? (For example, how did grocery stores
+    limiting the amount of meat consumers purchase affect consumer
+    price?)
+
+-   What kind of governmental regulations might have led meat prices to
+    either remain stable or stabilize earlier?
+
+-   How will the price of meat change throughout the rest of and after
+    the pandemic? Will meat prices remain higher than usual even after
+    the pandemic?
+
+-   Could investigating the public perception of the pandemic and
+    people’s comfort levels within the pandemic help us understand why
+    prices increased from another lens, beyond case count?
+
+Sources / Relevant Reading
+--------------------------
+
+-   \[<a href="https://www.bls.gov/opub/mlr/2020/article/the-impact-of-the-covid-19-pandemic-on-food-price-indexes-and-data-collection.htm" class="uri">https://www.bls.gov/opub/mlr/2020/article/the-impact-of-the-covid-19-pandemic-on-food-price-indexes-and-data-collection.htm</a>\]
